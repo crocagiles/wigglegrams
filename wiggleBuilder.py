@@ -11,11 +11,10 @@ import numpy as np
 
 
 
-imsetDir = '/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15'
+imsetDir = 'C:/Users/giles/Pictures/WIGGLEGRAMS/Round1/ImageSet_15/'
 overwrite = 1
-#im = imread('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/2_pos.jpg')
 
-def main(imsetDir):
+def main(imsetDir,overwrite):
     
     #TODO file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
@@ -29,6 +28,7 @@ def main(imsetDir):
     
     aligned = imgAlign(align2Me, ready2Align)
     aligned.sort() #list where each sublist is 0- fname of original jpeg, 1- img post alignment
+    
     
     fileOutput(aligned,overwrite)
             
@@ -104,7 +104,8 @@ def imgAlign(align2, fullList):
         
         # Define the motion model
         #warp_mode = cv2.MOTION_TRANSLATION
-        warp_mode = cv2.MOTION_HOMOGRAPHY
+        warp_mode = cv2.MOTION_EUCLIDEAN
+        #warp_mode = cv2.MOTION_HOMOGRAPHY
         
         # Define 2x3 or 3x3 matrices and initialize the matrix to identity
         if warp_mode == cv2.MOTION_HOMOGRAPHY :
@@ -157,9 +158,10 @@ def fileOutput(allData, overwrite):
         fullName = os.path.join(newFolder,fname)
         #print(data[1])
         cv2.imwrite(fullName,data[1])
+    print('wrote', len(data), 'aligned images to:\n', newFolder)
 
 
 
 
     
-derp = main(imsetDir)       
+derp = main(imsetDir,overwrite)       
