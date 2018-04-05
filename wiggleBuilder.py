@@ -11,7 +11,7 @@ import numpy as np
 import sys
 
 
-imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round1\ImageSet_11'
+imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round2 Skiing\Wigglz\Julien'
 
 overwrite = 1
 
@@ -24,7 +24,16 @@ def main(imsetDir,overwrite):
     
     #get crop rectangel from midimage
     x, y, width, height = getROI(midImage) #pass img filename, return 
+    xPoint,yPoint = int(width/2+x), int(height/2+y)
     
+    padded = enlargAboutCenter(midImage,[xPoint,yPoint])
+    
+    small = cv2.resize(padded, (0,0), fx=0.25, fy=0.25)
+    cv2.imshow('d',small)
+    cv2.waitKey(0)
+
+    
+    sys.exit()
     # function that crops all images. Returns list where each sublist is 0- abs path of jpeg 2-full image 3- cropped img
     ready2Align = cropImgs(jpegs,x, y, width, height) #pass list of jpeg filenames, returns with list where sublist is list [fname,numpyArrayCropped]
     align2Me    = cropImgs([midImage],x, y, width, height)
@@ -50,6 +59,35 @@ def main(imsetDir,overwrite):
     
     return(aligned)
 
+def enlargAboutCenter(image,newCenter):
+    im = cv2.imread(image)
+    imgray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
+    
+    rows, cols =  imgray.shape
+    offsetX = int(abs(cols/2-(newCenter[0])))
+    offsetY = int(abs(rows/2-(newCenter[1])))
+    
+    imgray = np.pad(imgray,((100,100),(100,100)),'constant', constant_values=(0,0))
+
+    
+    if newCenter[0] <= cols/2:
+        padSize = 'left'
+        imgray = np.pad(imgray,((0,0),(offsetX,1)),'constant', constant_values=(0))
+    else:
+        padSideX = 'right'
+        imgray = np.pad(imgray,((0,0),(1,offsetX)),'constant', constant_values=(0))
+    
+    if newCenter[1] <= rows/2:
+        padSideY = 'top'
+        imgray = np.pad(imgray,((offsetY,0),(0,0)),'constant', constant_values=(0))
+    else:
+        padSideY = 'bottom'
+        imgray = np.pad(imgray,((0,offsetY),(0,0)),'constant', constant_values=(0))
+    
+    paddedImage = imgray
+    return(paddedImage)
+    
+    
 
 def fileManager(inFolder):
     
@@ -127,10 +165,12 @@ def imgAlign(align2, fullList):
         toAlignFull = subList[1] #full img to be aligned 
         toAlignCrop = subList[2] #cropped image to be aligned
         
-    
+        # =============================================================================
+        # XY Translation Correction
+        # =============================================================================
         # Convert images to grayscale
-        im1_gray = cv2.cvtColor(align2Crop,cv2.COLOR_BGR2GRAY)
-        im2_gray = cv2.cvtColor(toAlignCrop,cv2.COLOR_BGR2GRAY)
+        align2CropGray = cv2.cvtColor(align2Crop,cv2.COLOR_BGR2GRAY)
+        toAlignCropGray = cv2.cvtColor(toAlignCrop,cv2.COLOR_BGR2GRAY)
 
         
         # Find size of image1
@@ -142,12 +182,8 @@ def imgAlign(align2, fullList):
         #warp_mode = cv2.MOTION_HOMOGRAPHY
         
         # Define 2x3 or 3x3 matrices and initialize the matrix to identity
-        if warp_mode == cv2.MOTION_HOMOGRAPHY :
-            warp_matrix = np.eye(3, 3, dtype=np.float32)
-        else :
-            warp_matrix = np.eye(2, 3, dtype=np.float32)
-        
-        
+        warp_matrix = np.eye(2, 3, dtype=np.float32)
+
         # Specify the number of iterations.
         number_of_iterations = 1000;
         
@@ -159,26 +195,54 @@ def imgAlign(align2, fullList):
         criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations,  termination_eps)
         
         # Run the ECC algorithm. The results are stored in warp_matrix.
-        (cc, warp_matrix)  = cv2.findTransformECC (im1_gray,im2_gray,warp_matrix, warp_mode, criteria)
+        (cc, warp_matrix)  = cv2.findTransformECC (align2CropGray,toAlignCropGray,warp_matrix, warp_mode, criteria)
+        print(warp_matrix,'\n')
         
-        print(subList[0])
-        print(warp_matrix,'\n\n')
+        # Use warpAffine for Translation, Euclidean and Affine
+        im_alignedXY         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+        im_alignedXY_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
         
-        if warp_mode == cv2.MOTION_HOMOGRAPHY :
-            # Use warpPerspective for Homography
-            im2_aligned         = cv2.warpPerspective (toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
-            im2_aligned_cropped = cv2.warpPerspective (toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP) #need to change size
-        else :
-            # Use warpAffine for Translation, Euclidean and Affine
-            im2_aligned         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
-            im2_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
-            
-        alignedImgList.append(      [subList[0],im2_aligned])
-        alignedCroppedList.append(  [subList[0],im2_aligned_cropped])
+
 #        cv2.imwrite('/Users/gholbrow/Downloads/derp1.png',toAlignFull)
 #        cv2.imwrite('/Users/gholbrow/Downloads/derp2.png',im2_aligned)
+        
+        # =============================================================================
+        #         ROTATION CORRECTION   
+        # =============================================================================
+        rotCropROI = 500
+        rows,cols,layers = align2Full.shape
+        rotCropBase = im_alignedXY[int(rows/2 -rotCropROI):int(rows/2+rotCropROI), int(cols/2-rotCropROI):int(cols/2+rotCropROI)]
+        rotCropn    = align2Full[int(rows/2 -rotCropROI):int(rows/2+rotCropROI), int(cols/2-rotCropROI):int(cols/2+rotCropROI)]
     
-     #adds back in the image that the others are being aligned to
+        
+        szRot = rotCropBase.shape
+        
+        rotCropBaseGray = cv2.cvtColor(rotCropBase,cv2.COLOR_BGR2GRAY)
+        rotCropnBase    = cv2.cvtColor(rotCropn,cv2.COLOR_BGR2GRAY)
+        
+        
+        cv2.imshow('at',rotCropBase)
+        cv2.waitKey(0)
+        cv2.imshow('atat',rotCropn)
+        
+        cv2.waitKey(0) 
+        
+        warp_mode2 = cv2.MOTION_EUCLIDEAN
+        warp_matrix2 = np.eye(2, 3, dtype=np.float32)
+        
+        (cc, warp_matrix2)  = cv2.findTransformECC (rotCropBaseGray,rotCropnBase,warp_matrix2, warp_mode2, criteria)
+        
+        im_alignedRot = cv2.warpAffine(im_alignedXY, warp_matrix2, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+        im_alignedRotCropped = cv2.warpAffine(im_alignedXY_cropped, warp_matrix2, (szRot[1],szRot[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+        
+
+
+        alignedImgList.append(      [subList[0],im_alignedRot])
+        alignedCroppedList.append(  [subList[0],im_alignedRotCropped])        
+        
+        
+       
+
     
     return(alignedImgList,alignedCroppedList)
 
