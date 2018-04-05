@@ -64,10 +64,10 @@ def enlargAboutCenter(image,newCenter):
     imgray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
     
     rows, cols =  imgray.shape
-    offsetX = int(abs(cols/2-(newCenter[0])))
-    offsetY = int(abs(rows/2-(newCenter[1])))
+    offsetX = int(abs(cols/2-(newCenter[0])))*2
+    offsetY = int(abs(rows/2-(newCenter[1])))*2
     
-    imgray = np.pad(imgray,((100,100),(100,100)),'constant', constant_values=(0,0))
+    #imgray = np.pad(imgray,((100,100),(100,100)),'constant', constant_values=(0,0))
 
     
     if newCenter[0] <= cols/2:
@@ -83,8 +83,16 @@ def enlargAboutCenter(image,newCenter):
     else:
         padSideY = 'bottom'
         imgray = np.pad(imgray,((0,offsetY),(0,0)),'constant', constant_values=(0))
-    
+        
+    rotCropROI = 400    
     paddedImage = imgray
+    paddedCrop = paddedImage[int(rows/2 -rotCropROI):int(rows/2+rotCropROI), int(cols/2-rotCropROI):int(cols/2+rotCropROI)]
+
+    small = cv2.resize(paddedCrop, (0,0), fx=0.25, fy=0.25)
+
+    cv2.imshow('d',small)
+    cv2.waitKey(0)
+    
     return(paddedImage)
     
     
