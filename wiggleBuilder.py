@@ -8,28 +8,42 @@ Created on Fri Mar 30 09:18:28 2018
 import os
 import cv2
 import numpy as np
+import sys
 
 
+imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round1\ImageSet_11'
 
-imsetDir = 'C:/Users/giles/Pictures/WIGGLEGRAMS/Round1/ImageSet_15/'
 overwrite = 1
+
+
 
 def main(imsetDir,overwrite):
     
-    #TODO file manager takes input folder and returns base image plus images to be aligned
+    #file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
     
     #get crop rectangel from midimage
-    x, y, width, height = getROI(midImage)
+    x, y, width, height = getROI(midImage) #pass img filename, return 
     
     # function that crops all images. Returns list where each sublist is 0- abs path of jpeg 2-full image 3- cropped img
-    ready2Align = cropImgs(jpegs,x, y, width, height)
+    ready2Align = cropImgs(jpegs,x, y, width, height) #pass list of jpeg filenames, returns with list where sublist is list [fname,numpyArrayCropped]
     align2Me    = cropImgs([midImage],x, y, width, height)
-    
-    aligned = imgAlign(align2Me, ready2Align)
-    aligned.sort() #list where each sublist is 0- fname of original jpeg, 1- img post alignment
+#    aligned = imgAlign(align2Me, ready2Align)
     
     
+    aligned,alignedCropped = imgAlign(align2Me, ready2Align) #pass align2Me ()
+    
+    aligned.sort()
+    alignedCropped.sort()
+    
+    beforeImsCropped = [x[2] for x in ready2Align] + [y[2] for y in align2Me]
+    afterImsCropped  = [x[1] for x in alignedCropped]
+    
+    afterafterImsCropped = cropImgs( [x[0] for x in aligned] ,x, y, width, height)
+    
+    #imDip(beforeIms,AfterIms):
+    #imDisp(beforeImsCropped,afterImsCropped,[x[2] for x in afterafterImsCropped])
+    #list where each sublist is 0- fname of original jpeg, 1- img post alignment
     fileOutput(aligned,overwrite)
             
     #print(midImage, '\n', jpegs)
@@ -44,8 +58,14 @@ def fileManager(inFolder):
     
     jpegs = []
     for file in os.listdir(inFolder):
-        if file.endswith(".jpg") and not file.startswith('.'):    
+        if file.endswith(".jpg") or file.endswith(".JPG") and not file.startswith('.'):    
             jpegs.append(os.path.join(inFolder,file))
+    
+#    print(jpegs)
+    if len(jpegs) < 2:
+        print('\nError: You must have at least two jpeg images in the input directory.\n')
+        sys.exit()
+        return
     
     if not jpegs:
         print('no Jpeg images found in the input directory')
@@ -79,21 +99,35 @@ def cropImgs(imgList,x, y, width, height):
     
     return(toReturn)
 
+#takes two lists of images of the same size and returns the stacked on top ofeachother in a window    
+def imDisp(beforeIms,afterIms,afterafterImsCropped):
+    before = np.concatenate( beforeIms, axis = 0 )
+    after =  np.concatenate( afterIms,  axis = 0 )
+    afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
+    beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
+    
+    cv2.imshow('top',beforeAfter)
+    cv2.waitKey(0)    
+    
+    
+
 # Read the images to be aligned
 def imgAlign(align2, fullList):
     
-    align2Name = align2[0][0]
-    align2Full = align2[0][1]
-    align2Crop = align2[0][2]
+    align2Name = align2[0][0] #fname
+    align2Full = align2[0][1] #aligning other images to this image, full res
+    align2Crop = align2[0][2] #crop section to do actual alignment 
     
-    alignedImgList = []
     
+    alignedCroppedList = [[align2Name, align2Crop]]
+    alignedImgList     = [[align2Name, align2Full]]
     
     for subList in fullList:
         
         toAlignFull = subList[1] #full img to be aligned 
         toAlignCrop = subList[2] #cropped image to be aligned
         
+    
         # Convert images to grayscale
         im1_gray = cv2.cvtColor(align2Crop,cv2.COLOR_BGR2GRAY)
         im2_gray = cv2.cvtColor(toAlignCrop,cv2.COLOR_BGR2GRAY)
@@ -101,10 +135,10 @@ def imgAlign(align2, fullList):
         
         # Find size of image1
         sz = align2Full.shape
-        
+        szCrop = align2Crop.shape
         # Define the motion model
-        #warp_mode = cv2.MOTION_TRANSLATION
-        warp_mode = cv2.MOTION_EUCLIDEAN
+        warp_mode = cv2.MOTION_TRANSLATION
+        #warp_mode = cv2.MOTION_EUCLIDEAN
         #warp_mode = cv2.MOTION_HOMOGRAPHY
         
         # Define 2x3 or 3x3 matrices and initialize the matrix to identity
@@ -115,7 +149,7 @@ def imgAlign(align2, fullList):
         
         
         # Specify the number of iterations.
-        number_of_iterations = 5000;
+        number_of_iterations = 1000;
         
         # Specify the threshold of the increment
         # in the correlation coefficient between two iterations
@@ -127,20 +161,26 @@ def imgAlign(align2, fullList):
         # Run the ECC algorithm. The results are stored in warp_matrix.
         (cc, warp_matrix)  = cv2.findTransformECC (im1_gray,im2_gray,warp_matrix, warp_mode, criteria)
         
+        print(subList[0])
+        print(warp_matrix,'\n\n')
+        
         if warp_mode == cv2.MOTION_HOMOGRAPHY :
             # Use warpPerspective for Homography
-            im2_aligned = cv2.warpPerspective (toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+            im2_aligned         = cv2.warpPerspective (toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+            im2_aligned_cropped = cv2.warpPerspective (toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP) #need to change size
         else :
             # Use warpAffine for Translation, Euclidean and Affine
-            im2_aligned = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+            im2_aligned         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
+            im2_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
             
-        alignedImgList.append([subList[0],im2_aligned])
-        
+        alignedImgList.append(      [subList[0],im2_aligned])
+        alignedCroppedList.append(  [subList[0],im2_aligned_cropped])
 #        cv2.imwrite('/Users/gholbrow/Downloads/derp1.png',toAlignFull)
 #        cv2.imwrite('/Users/gholbrow/Downloads/derp2.png',im2_aligned)
     
-    alignedImgList.append( [align2Name, align2Full] ) #adds back in the image that the others are being aligned to
-    return(alignedImgList)
+     #adds back in the image that the others are being aligned to
+    
+    return(alignedImgList,alignedCroppedList)
 
 
 def fileOutput(allData, overwrite):
