@@ -11,7 +11,7 @@ import numpy as np
 import sys
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/Aligned'
 
 overwrite = 1
 
@@ -27,7 +27,7 @@ def main(imsetDir,overwrite):
     
     #Get center point of ROI returned from the getROI function
     xPoint,yPoint = int(width/2+x), int(height/2+y)
-    
+#    xPoint,yPoint = 0,0
     #Pad the middle image (which other images will be aligned to)
     midImagePadded  = pad2NewCenter(midImage,[xPoint,yPoint])
     
@@ -37,10 +37,11 @@ def main(imsetDir,overwrite):
     
     ROIsize = 250
     midImageCropped = midImagePadded[ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)]
-
-#    cv2.imshow('d',midImageCropped)
-#    cv2.waitKey(0)
-#    cv2.destroyAllWindows()
+    
+    
+    cv2.imshow('d',midImageCropped)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
     
     #This is bundle format. Each other jpeg will have a list like this one
     midImageBundle = [midImage, midImagePadded, midImageCropped]
@@ -57,7 +58,7 @@ def main(imsetDir,overwrite):
     alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
     for bundle in toAlignBundles:
         fname = bundle[0]
-        fullAlign, alignCrop = imgAlign(midImageBundle,bundle)
+        fullAlign, alignCrop = imgAlign(midImageBundle,bundle,cv2.MOTION_TRANSLATION) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
         alignedBundles.append([fname,fullAlign])
         alignedBundlesCrop.append([fname,alignCrop])
 #    aligned,alignedCropped = imgAlign(midImageBundle, toAlignBundles) #pass align2Me ()
@@ -196,14 +197,14 @@ def imDisp(beforeIms,afterIms,afterafterImsCropped):
     afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
     beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
     
-    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/Aligned/derpydoo.jpg',beforeAfter)
+    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
 #    cv2.imshow('top',beforeAfter)
 #    cv2.waitKey(0)    
     
     
 
 # Read the images to be aligned
-def imgAlign(align2, toAlign):
+def imgAlign(align2, toAlign,warpMode):
     
     align2Name = align2[0] #fname
     align2Full = align2[1] #aligning other images to this image, full res
@@ -223,7 +224,7 @@ def imgAlign(align2, toAlign):
     szCrop = align2Crop.shape
     # Define the motion model
     #warp_mode = cv2.MOTION_TRANSLATION
-    warp_mode = cv2.MOTION_EUCLIDEAN
+    warp_mode = warpMode
     #warp_mode = cv2.MOTION_HOMOGRAPHY
     
     # Define 2x3 or 3x3 matrices and initialize the matrix to identity
@@ -246,6 +247,14 @@ def imgAlign(align2, toAlign):
     im_aligned         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
     im_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
              
+    
+
+    
+    
+    
+    
+    
+    
     return(im_aligned,im_aligned_cropped)
 
 
@@ -270,4 +279,4 @@ def fileOutput(allData, overwrite):
 
 
     
-derp = main(imsetDir,overwrite)       
+main(imsetDir,overwrite)
