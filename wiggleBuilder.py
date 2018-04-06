@@ -11,7 +11,7 @@ import numpy as np
 import sys
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
+imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round1\ImageSet_11'
 
 overwrite = 1
 
@@ -21,7 +21,9 @@ def main(imsetDir,overwrite):
     
     #file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
+    midImageData = cv2.imread(midImage)
     
+    origY,origX, layers = midImageData.shape
     #get crop rectangel from midimage
     x, y, width, height = getROI(midImage) #pass img filename, return 
     
@@ -36,77 +38,108 @@ def main(imsetDir,overwrite):
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
     ROIsize = 250
-    midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+    #midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     
     
-    cv2.imshow('d',midImageCropped)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+#    cv2.imshow('d',midImageCropped)
+#    cv2.waitKey(0)
+#    cv2.destroyAllWindows()
     
     #This is bundle format. Each other jpeg will have a list like this one
-    midImageBundle = [midImage, midImagePadded, midImageCropped]
     
     toAlignBundles = []
-    #Pad the "to be aligned" jpegs with the exact padding as midImagePadded
+    #Pad the "to be aligned" jpegs with the exact padding as midImagePadded, please in correct sublist format.
     for jpeg in (jpegs):
         fname = jpeg
-        paddedjpeg = pad2NewCenter(jpeg,[xPoint,yPoint])
+        paddedjpeg, xPad2 ,yPad2 = pad2NewCenter(jpeg,[xPoint,yPoint])
         croppedJpeg = paddedjpeg[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
         toAlignBundles.append([fname,paddedjpeg,croppedJpeg])
     
-    alignedBundles = [[midImageBundle[0],midImageBundle[1]]]
-    alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
+    #alignedBundles = [[midImageBundle[0], midImageBundle[1]]]
+    
+    #alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
+    
+    alignedBundles = []
+    midImageBundlePad = [midImage, midImagePadded  , midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize] ]
     for bundle in toAlignBundles:
-        fname = bundle[0]
-        fullAlign, alignCrop = imgAlign(midImageBundle,bundle,cv2.MOTION_TRANSLATION) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
-        alignedBundles.append([fname,fullAlign])
-        alignedBundlesCrop.append([fname,alignCrop])
+        #bundle.append(bundle[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]) #add crop section
+        cv2.imshow('d', midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize])
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        
+        fname,fullImg,cropSect   = bundle[0], bundle[1], bundle[2]
+        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle,cv2.MOTION_TRANSLATION) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
+        fullAlignTrim = removePadding(fullAlign,xPad,yPad,origY,origX )
+        alignedBundles.append([fname,fullAlignTrim,alignCrop])
+     
+    #alignedBundles.append(midImageBundle)
+#        alignedBundlesCrop.append([fname,alignCrop])
+    #alignedBundles[0][1] =  removePadding(alignedBundles[0][1],xPad,yPad,origY,origX) 
 #    aligned,alignedCropped = imgAlign(midImageBundle, toAlignBundles) #pass align2Me ()
 #   
         
-    alignedBundles.sort()
-    alignedBundlesCrop.sort()
+    #alignedBundles.sort()
+    #alignedBundlesCrop.sort()
+
+    #
+    fullyAligned = []
+    midImageCropped = midImageData[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+    midImageBundle = [midImage, midImageData,midImageCropped ] 
+    for aligned in alignedBundles:
+        
+        cv2.imshow('d',midImageCropped)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     
-    
-    
-    
-    
-    
-    
-    beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
-    afterImsCropped  = [x[1] for x in alignedBundlesCrop]
-    afterafterImsCropped = [x[1][ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)] for x in alignedBundles]
-    
+        cropped = aligned[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+        
+        cv2.imshow('d',cropped)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        
+        aligned.append(cropped) # add crop center section for xy translation calc
+        fname,fullImg,cropSect   = aligned[0], aligned[1], aligned[2]
+        
+        fullAlignXY, alignCropXY = imgAlign(midImageBundle,aligned,cv2.MOTION_TRANSLATION)
+        fullyAligned.append([fname,fullAlignXY])
+    fullyAligned.append(midImageBundle) 
+    #fullyAligned.sort()
+#    beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
+#    afterImsCropped  = [x[1] for x in alignedBundlesCrop]
+#    afterafterImsCropped = [x[1][ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)] for x in alignedBundles]
+#    
     
     
     
     imDisp(beforeImsCropped,afterImsCropped,afterafterImsCropped)
     
     #list where each sublist is 0- fname of original jpeg, 1- img post alignment
-    fileOutput(alignedBundles,overwrite)
+    fileOutput(fullyAligned,overwrite)
             
     #print(midImage, '\n', jpegs)
  
 
-def removePadding(paddedImg,xTup,yTup):
-    paddedImg = midImagePadded
-    paddedSize = paddedImg.shape
+def removePadding(paddedImg,xPaddingData,yPaddingData,origDimY,origDimX):
+
     
-    xTup = (0, 3474)
-    yTup = (2584, 0)
-    
-    depadImg = paddedImg[yT]
+    if xPaddingData[0] == 'right':
+        depadImgx= paddedImg[ : , :origDimX  ]
+    else:
+        depadImgx= paddedImg[ : ,  xPaddingData[1]: ]
         
-    
-    
-#    return(aligned)
+    if yPaddingData[0] == 'bottom':
+        depadImg = depadImgx[ :origDimY ,  :]
+    else:
+        depadImg = depadImgx[ xPaddingData[1]:  ,  :]
+        
+    return(depadImg)
 
 
 # =============================================================================
 # pad2NewCenter(image,newCenter)
 #    input:
 #        image - abs path to rgb img
-#        newCenter - List with length of two
+#        newCenter - List with length of two`
 #            newCenter[0] - X/Column location of new center for the image
 #            newCenter[1] - Y/Row location of new center for the image
 #    output:
@@ -122,23 +155,23 @@ def pad2NewCenter(image,newCenter):
 
     #X Padding
     if newCenter[0] <= cols/2:
-        #padding = 'top'
+        paddingX = 'left'
         padTupX = (offsetX,0)
     else:
-        #padding = 'bottom'
+        paddingX = 'right'
         padTupX = (0,offsetX)
         
     #Y Padding    
     if newCenter[1] <= rows/2:
-        #padding2 = 'left'
+        paddingY = 'top'
         padTupY = (offsetY,0)
     else:
-        #padding2 = 'right'
+        paddingY = 'bottom'
         padTupY = (0,offsetY)
     
-    paddedXY = np.pad(imArray,(padTupY,padTupX,(0,0)),'constant', constant_values=(0))
+    paddedXY = np.pad(imArray,(padTupY,padTupX,(0,0)),'constant', constant_values=(50))
     
-    return(paddedXY, padTupX, padTupY) 
+    return(paddedXY, [paddingX,offsetX], [paddingY,offsetY]) 
 
 # =============================================================================
 # fileManager(inFolder)
@@ -271,6 +304,7 @@ def imgAlign(align2, toAlign,warpMode):
     im_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
              
     
+
 
     
     
