@@ -9,15 +9,16 @@ import os
 import cv2
 import numpy as np
 import sys
+import imageio
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_02'
 
 overwrite = 1
 percentCrop = 3
+ROIsize = 250
 
-
-def main(imsetDir,overwrite,percentCrop):
+def main(imsetDir,overwrite,ROIsize,percentCrop):
     
     #file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
@@ -37,7 +38,7 @@ def main(imsetDir,overwrite,percentCrop):
     midImageRows, midImageCols , midImageLayers  = midImagePadded.shape
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
-    ROIsize = 200
+    
     
     toAlignBundles = []
     #Pad the "to be aligned" jpegs with the exact padding as midImagePadded, please in correct sublist format.
@@ -52,12 +53,12 @@ def main(imsetDir,overwrite,percentCrop):
     alignedBundles = []
     midImagePadCrop = midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     midImageBundlePad = [midImage, midImagePadded  , midImagePadCrop ]
-    for bundle in enumerate(toAlignBundles):     
+    for bundle in enumerate(toAlignBundles):
+        print('Aligning Image',str(bundle[0]+1),'of',str(len(toAlignBundles)))
         fname   = bundle[1][0]
         fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle[1],cv2.MOTION_EUCLIDEAN) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
         fullAlignTrim = removePadding(fullAlign,yPad,xPad,origY,origX,midImageRows,midImageCols )
         alignedBundles.append([fname,fullAlignTrim,alignCrop])
-        print('Aligned Image',str(bundle[0]+1),'of',str(len(toAlignBundles)))
     
     #XY Translation Alignment
     fullyAligned = []
@@ -66,24 +67,49 @@ def main(imsetDir,overwrite,percentCrop):
 
     print('\n...XY translation alignment in progress...')
     for aligned in enumerate(alignedBundles):
+        print('Aligning Image',str(aligned[0]+1),'of',str(len(aligned)))
         alignedNoEnum = aligned[1]
         cropped = alignedNoEnum[1][ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
         alignedNoEnum[2] = cropped # add crop center section for xy translation calc
         fname  = alignedNoEnum[0]
         fullAlignXY, alignCropXY = imgAlign(midImageBundle,alignedNoEnum,cv2.MOTION_TRANSLATION)
-        
         ready2WriteOut = cropByPercent(fullAlignXY,percentCrop)
-        
         fullyAligned.append([fname,ready2WriteOut])
-        print('Aligned Image',str(aligned[0]+1),'of',str(len(aligned)))
+        
      
     #cropMidImage
     midImageBundle[1] =  cropByPercent(midImageData,percentCrop)
     fullyAligned.append(midImageBundle) 
-
     
+    
+    fullyAligned.sort()
+   
+    loopBack = list(reversed(fullyAligned[1:-1]))
+    
+    fullyAlignedLoop = fullyAligned + loopBack
+    
+    toOutput = []
+    #change filenames for output
+    for bundle in enumerate(fullyAlignedLoop):
+        iterate = bundle[0]
+        contents = bundle[1]
+        
+        origPath, origName = os.path.split(contents[0])
+        newName = 'aligned_' + str(iterate) + '.jpg'
+        fullnew = os.path.join(origPath,newName)
+        fullyAlignedLoop[iterate][0] = fullnew
+        
+        toOutput.append([fullnew, contents[1]])
+        print(contents[0])
+        
+        
+    #gif creation
+#    gifIms = [x[1] for x in fullyAligned]
+#    loopBack = list(reversed(gifIms[1:-1]))
+#    gifImsFull = gifIms + loopBack
+
     #list where each sublist is 0- fname of original jpeg, 1- img post alignment
-    fileOutput(fullyAligned,overwrite)
+    fileOutput(toOutput,overwrite)
             
 
  
@@ -301,15 +327,27 @@ def fileOutput(allData, overwrite):
         print('\nAligned folder already exists. Use overwrite argument to proceeed')
         return
     
+    toMakeGif = []
     for data in allData:
         fname = os.path.split(data[0])[1]
         fullName = os.path.join(newFolder,fname)
         #print(data[1])
         cv2.imwrite(fullName,data[1])
-    print('\nwrote', len(data), 'aligned images to:\n', newFolder)
+        toMakeGif.append(fullName)
+    
+    gifOutput(toMakeGif,os.path.join(newFolder,'gifAligned.gif'))
+    print('\nwrote', len(allData), 'aligned images + gifAligned.gif to:\n', newFolder)
 
-
-
+    return
+    
+    
+def gifOutput(gifImgList,outLocation):
+    
+    imgDataList = []
+    for img in gifImgList:
+        imgDataList.append(imageio.imread(img)) 
+    imageio.mimsave(outLocation, imgDataList)
+        
 
     
-main(imsetDir,overwrite,percentCrop)
+main(imsetDir,overwrite,ROIsize,percentCrop)
