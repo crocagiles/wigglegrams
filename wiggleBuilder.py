@@ -11,7 +11,7 @@ import numpy as np
 import sys
 
 
-imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round1\ImageSet_11'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
 
 overwrite = 1
 
@@ -37,7 +37,7 @@ def main(imsetDir,overwrite):
     midImageRows, midImageCols , midImageLayers  = midImagePadded.shape
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
-    ROIsize = 250
+    ROIsize = 200
     #midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     
     
@@ -59,19 +59,23 @@ def main(imsetDir,overwrite):
     
     #alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
     
+    print('Rotational alignment in progress')
+    
     alignedBundles = []
-    midImageBundlePad = [midImage, midImagePadded  , midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize] ]
+    midImagePadCrop = midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+    midImageBundlePad = [midImage, midImagePadded  , midImagePadCrop ]
     for bundle in toAlignBundles:
         #bundle.append(bundle[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]) #add crop section
-        cv2.imshow('d', midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize])
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+#        cv2.imshow('d', midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize])
+#        cv2.waitKey(0)
+#        cv2.destroyAllWindows()
         
         fname,fullImg,cropSect   = bundle[0], bundle[1], bundle[2]
-        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle,cv2.MOTION_TRANSLATION) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
-        fullAlignTrim = removePadding(fullAlign,xPad,yPad,origY,origX )
+        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle,cv2.MOTION_EUCLIDEAN) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
+        fullAlignTrim = removePadding(fullAlign,yPad,xPad,origY,origX,midImageRows,midImageCols )
         alignedBundles.append([fname,fullAlignTrim,alignCrop])
-     
+    
+    
     #alignedBundles.append(midImageBundle)
 #        alignedBundlesCrop.append([fname,alignCrop])
     #alignedBundles[0][1] =  removePadding(alignedBundles[0][1],xPad,yPad,origY,origX) 
@@ -83,25 +87,27 @@ def main(imsetDir,overwrite):
 
     #
     fullyAligned = []
-    midImageCropped = midImageData[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+    midImageCropped = midImageData[ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
     midImageBundle = [midImage, midImageData,midImageCropped ] 
-    for aligned in alignedBundles:
-        
-        cv2.imshow('d',midImageCropped)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
     
-        cropped = aligned[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
+#    cv2.imshow('mid image cropped',midImageCropped)
+#    cv2.waitKey(0)
+#    cv2.destroyAllWindows()
+    print('XY translation alignment in progress')
+    for aligned in alignedBundles:
+    
+        cropped = aligned[1][ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
         
-        cv2.imshow('d',cropped)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+#        cv2.imshow('d',cropped)
+#        cv2.waitKey(0)
+#        cv2.destroyAllWindows()
         
-        aligned.append(cropped) # add crop center section for xy translation calc
+        aligned[2] = cropped # add crop center section for xy translation calc
         fname,fullImg,cropSect   = aligned[0], aligned[1], aligned[2]
         
         fullAlignXY, alignCropXY = imgAlign(midImageBundle,aligned,cv2.MOTION_TRANSLATION)
         fullyAligned.append([fname,fullAlignXY])
+        
     fullyAligned.append(midImageBundle) 
     #fullyAligned.sort()
 #    beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
@@ -111,7 +117,7 @@ def main(imsetDir,overwrite):
     
     
     
-    imDisp(beforeImsCropped,afterImsCropped,afterafterImsCropped)
+#    imDisp(beforeImsCropped,afterImsCropped,afterafterImsCropped)
     
     #list where each sublist is 0- fname of original jpeg, 1- img post alignment
     fileOutput(fullyAligned,overwrite)
@@ -119,18 +125,19 @@ def main(imsetDir,overwrite):
     #print(midImage, '\n', jpegs)
  
 
-def removePadding(paddedImg,xPaddingData,yPaddingData,origDimY,origDimX):
+def removePadding(paddedImg,yPaddingData,xPaddingData,origDimY,origDimX,paddedY,paddedX):
 
     
     if xPaddingData[0] == 'right':
         depadImgx= paddedImg[ : , :origDimX  ]
     else:
-        depadImgx= paddedImg[ : ,  xPaddingData[1]: ]
+        depadImgx= paddedImg[ : ,  paddedX-origDimX: ]
+            
         
     if yPaddingData[0] == 'bottom':
         depadImg = depadImgx[ :origDimY ,  :]
     else:
-        depadImg = depadImgx[ xPaddingData[1]:  ,  :]
+        depadImg = depadImgx[ paddedY-origDimY:  ,  :]
         
     return(depadImg)
 
@@ -217,6 +224,7 @@ def fileManager(inFolder):
 # =============================================================================
 def getROI(imgPath):
     img = cv2.imread(imgPath)
+    print('Please select a point on the image and press enter to confirm.')
     cv2.namedWindow("Select ROI by clicking and dragging, then press enter",cv2.WINDOW_NORMAL)
     coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter",img)
     cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
