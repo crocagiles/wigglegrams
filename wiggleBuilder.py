@@ -14,10 +14,10 @@ import sys
 imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
 
 overwrite = 1
+percentCrop = 3
 
 
-
-def main(imsetDir,overwrite):
+def main(imsetDir,overwrite,percentCrop):
     
     #file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
@@ -38,14 +38,6 @@ def main(imsetDir,overwrite):
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
     ROIsize = 200
-    #midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
-    
-    
-#    cv2.imshow('d',midImageCropped)
-#    cv2.waitKey(0)
-#    cv2.destroyAllWindows()
-    
-    #This is bundle format. Each other jpeg will have a list like this one
     
     toAlignBundles = []
     #Pad the "to be aligned" jpegs with the exact padding as midImagePadded, please in correct sublist format.
@@ -54,87 +46,58 @@ def main(imsetDir,overwrite):
         paddedjpeg, xPad2 ,yPad2 = pad2NewCenter(jpeg,[xPoint,yPoint])
         croppedJpeg = paddedjpeg[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
         toAlignBundles.append([fname,paddedjpeg,croppedJpeg])
-    
-    #alignedBundles = [[midImageBundle[0], midImageBundle[1]]]
-    
-    #alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
-    
-    print('Rotational alignment in progress')
-    
+
+    #Rotational Alignment
+    print('\n...Rotational alignment in progress...')
     alignedBundles = []
     midImagePadCrop = midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     midImageBundlePad = [midImage, midImagePadded  , midImagePadCrop ]
-    for bundle in toAlignBundles:
-        #bundle.append(bundle[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]) #add crop section
-#        cv2.imshow('d', midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize])
-#        cv2.waitKey(0)
-#        cv2.destroyAllWindows()
-        
-        fname,fullImg,cropSect   = bundle[0], bundle[1], bundle[2]
-        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle,cv2.MOTION_EUCLIDEAN) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
+    for bundle in enumerate(toAlignBundles):     
+        fname   = bundle[1][0]
+        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle[1],cv2.MOTION_EUCLIDEAN) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
         fullAlignTrim = removePadding(fullAlign,yPad,xPad,origY,origX,midImageRows,midImageCols )
         alignedBundles.append([fname,fullAlignTrim,alignCrop])
+        print('Aligned Image',str(bundle[0]+1),'of',str(len(toAlignBundles)))
     
-    
-    #alignedBundles.append(midImageBundle)
-#        alignedBundlesCrop.append([fname,alignCrop])
-    #alignedBundles[0][1] =  removePadding(alignedBundles[0][1],xPad,yPad,origY,origX) 
-#    aligned,alignedCropped = imgAlign(midImageBundle, toAlignBundles) #pass align2Me ()
-#   
-        
-    #alignedBundles.sort()
-    #alignedBundlesCrop.sort()
-
-    #
+    #XY Translation Alignment
     fullyAligned = []
     midImageCropped = midImageData[ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
     midImageBundle = [midImage, midImageData,midImageCropped ] 
-    
-#    cv2.imshow('mid image cropped',midImageCropped)
-#    cv2.waitKey(0)
-#    cv2.destroyAllWindows()
-    print('XY translation alignment in progress')
-    for aligned in alignedBundles:
-    
-        cropped = aligned[1][ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
+
+    print('\n...XY translation alignment in progress...')
+    for aligned in enumerate(alignedBundles):
+        alignedNoEnum = aligned[1]
+        cropped = alignedNoEnum[1][ yPoint-ROIsize : yPoint+ROIsize , xPoint-ROIsize : xPoint+ROIsize]
+        alignedNoEnum[2] = cropped # add crop center section for xy translation calc
+        fname  = alignedNoEnum[0]
+        fullAlignXY, alignCropXY = imgAlign(midImageBundle,alignedNoEnum,cv2.MOTION_TRANSLATION)
         
-#        cv2.imshow('d',cropped)
-#        cv2.waitKey(0)
-#        cv2.destroyAllWindows()
+        ready2WriteOut = cropByPercent(fullAlignXY,percentCrop)
         
-        aligned[2] = cropped # add crop center section for xy translation calc
-        fname,fullImg,cropSect   = aligned[0], aligned[1], aligned[2]
-        
-        fullAlignXY, alignCropXY = imgAlign(midImageBundle,aligned,cv2.MOTION_TRANSLATION)
-        fullyAligned.append([fname,fullAlignXY])
-        
+        fullyAligned.append([fname,ready2WriteOut])
+        print('Aligned Image',str(aligned[0]+1),'of',str(len(aligned)))
+     
+    #cropMidImage
+    midImageBundle[1] =  cropByPercent(midImageData,percentCrop)
     fullyAligned.append(midImageBundle) 
-    #fullyAligned.sort()
-#    beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
-#    afterImsCropped  = [x[1] for x in alignedBundlesCrop]
-#    afterafterImsCropped = [x[1][ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)] for x in alignedBundles]
-#    
-    
-    
-    
-#    imDisp(beforeImsCropped,afterImsCropped,afterafterImsCropped)
+
     
     #list where each sublist is 0- fname of original jpeg, 1- img post alignment
     fileOutput(fullyAligned,overwrite)
             
-    #print(midImage, '\n', jpegs)
+
  
 
 def removePadding(paddedImg,yPaddingData,xPaddingData,origDimY,origDimX,paddedY,paddedX):
 
     
-    if xPaddingData[0] == 'right':
+    if xPaddingData == 'right':
         depadImgx= paddedImg[ : , :origDimX  ]
     else:
         depadImgx= paddedImg[ : ,  paddedX-origDimX: ]
             
         
-    if yPaddingData[0] == 'bottom':
+    if yPaddingData == 'bottom':
         depadImg = depadImgx[ :origDimY ,  :]
     else:
         depadImg = depadImgx[ paddedY-origDimY:  ,  :]
@@ -178,7 +141,7 @@ def pad2NewCenter(image,newCenter):
     
     paddedXY = np.pad(imArray,(padTupY,padTupX,(0,0)),'constant', constant_values=(50))
     
-    return(paddedXY, [paddingX,offsetX], [paddingY,offsetY]) 
+    return(paddedXY, paddingX, paddingY) 
 
 # =============================================================================
 # fileManager(inFolder)
@@ -224,7 +187,7 @@ def fileManager(inFolder):
 # =============================================================================
 def getROI(imgPath):
     img = cv2.imread(imgPath)
-    print('Please select a point on the image and press enter to confirm.')
+    print('\nPlease select a point on the image and press enter to confirm.')
     cv2.namedWindow("Select ROI by clicking and dragging, then press enter",cv2.WINDOW_NORMAL)
     coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter",img)
     cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
@@ -255,26 +218,25 @@ def cropImg(img,x, y, width, height):
     return(cropImg)
 
 #takes  lists of images of the same size and returns the stacked on top ofeachother in a window    
-def imDisp(beforeIms,afterIms,afterafterImsCropped):
-    before = np.concatenate( beforeIms, axis = 0 )
-    after =  np.concatenate( afterIms,  axis = 0 )
-    afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
-    beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
-    
-    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
-#    cv2.imshow('top',beforeAfter)
-#    cv2.waitKey(0)    
+#def imDisp(beforeIms,afterIms,afterafterImsCropped):
+#    before = np.concatenate( beforeIms, axis = 0 )
+#    after =  np.concatenate( afterIms,  axis = 0 )
+#    afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
+#    beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
+#    
+#    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
+  
     
     
 
 # Read the images to be aligned
 def imgAlign(align2, toAlign,warpMode):
     
-    align2Name = align2[0] #fname
+#    align2Name = align2[0] #fname
     align2Full = align2[1] #aligning other images to this image, full res
     align2Crop = align2[2] #crop section to do actual alignment 
     
-    toAlignName = toAlign[0]
+#    toAlignName = toAlign[0]
     toAlignFull = toAlign[1]
     toAlignCrop = toAlign[2]
         
@@ -311,16 +273,22 @@ def imgAlign(align2, toAlign,warpMode):
     im_aligned         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
     im_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
              
-    
-
-
-    
-    
-    
-    
-    
-    
     return(im_aligned,im_aligned_cropped)
+    
+def cropByPercent(imgToCrop,percentCrop):
+    
+    if percentCrop == 0:
+        return(imgToCrop)
+        
+    imgRows, imgCols, layers = imgToCrop.shape
+    removeRowsPerSide = int((imgRows - (imgRows*(1-percentCrop/100 )))/2)
+    removeColsPerSide = int((imgCols - (imgCols*(1-percentCrop/100 )))/2)
+    
+    croppedImg = imgToCrop[removeRowsPerSide:imgRows-removeRowsPerSide,removeColsPerSide:imgCols-removeColsPerSide]
+    
+    return(croppedImg)
+    
+    
 
 
 def fileOutput(allData, overwrite):
@@ -330,7 +298,7 @@ def fileOutput(allData, overwrite):
     if not os.path.isdir(newFolder): 
         os.mkdir(newFolder)
     elif overwrite == 0:
-        print('Aligned folder already exists. Use overwrite argument to proceeed')
+        print('\nAligned folder already exists. Use overwrite argument to proceeed')
         return
     
     for data in allData:
@@ -338,10 +306,10 @@ def fileOutput(allData, overwrite):
         fullName = os.path.join(newFolder,fname)
         #print(data[1])
         cv2.imwrite(fullName,data[1])
-    print('wrote', len(data), 'aligned images to:\n', newFolder)
+    print('\nwrote', len(data), 'aligned images to:\n', newFolder)
 
 
 
 
     
-main(imsetDir,overwrite)
+main(imsetDir,overwrite,percentCrop)
