@@ -11,7 +11,7 @@ import numpy as np
 import sys
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/Aligned'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_11/'
 
 overwrite = 1
 
@@ -29,14 +29,14 @@ def main(imsetDir,overwrite):
     xPoint,yPoint = int(width/2+x), int(height/2+y)
 #    xPoint,yPoint = 0,0
     #Pad the middle image (which other images will be aligned to)
-    midImagePadded  = pad2NewCenter(midImage,[xPoint,yPoint])
+    midImagePadded,xPad,yPad  = pad2NewCenter(midImage,[xPoint,yPoint])
     
     #find the center location of the padded image
     midImageRows, midImageCols , midImageLayers  = midImagePadded.shape
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
     ROIsize = 250
-    midImageCropped = midImagePadded[ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)]
+    midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     
     
     cv2.imshow('d',midImageCropped)
@@ -51,7 +51,7 @@ def main(imsetDir,overwrite):
     for jpeg in (jpegs):
         fname = jpeg
         paddedjpeg = pad2NewCenter(jpeg,[xPoint,yPoint])
-        croppedJpeg = paddedjpeg[ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)]
+        croppedJpeg = paddedjpeg[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
         toAlignBundles.append([fname,paddedjpeg,croppedJpeg])
     
     alignedBundles = [[midImageBundle[0],midImageBundle[1]]]
@@ -62,9 +62,15 @@ def main(imsetDir,overwrite):
         alignedBundles.append([fname,fullAlign])
         alignedBundlesCrop.append([fname,alignCrop])
 #    aligned,alignedCropped = imgAlign(midImageBundle, toAlignBundles) #pass align2Me ()
-#    
+#   
+        
     alignedBundles.sort()
     alignedBundlesCrop.sort()
+    
+    
+    
+    
+    
     
     
     beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
@@ -80,6 +86,18 @@ def main(imsetDir,overwrite):
     fileOutput(alignedBundles,overwrite)
             
     #print(midImage, '\n', jpegs)
+ 
+
+def removePadding(paddedImg,xTup,yTup):
+    paddedImg = midImagePadded
+    paddedSize = paddedImg.shape
+    
+    xTup = (0, 3474)
+    yTup = (2584, 0)
+    
+    depadImg = paddedImg[yT]
+        
+    
     
 #    return(aligned)
 
@@ -104,18 +122,23 @@ def pad2NewCenter(image,newCenter):
 
     #X Padding
     if newCenter[0] <= cols/2:
-        padded = np.pad(imArray,((0,0),(offsetX,0),(0,0)),'constant', constant_values=(0))
+        #padding = 'top'
+        padTupX = (offsetX,0)
     else:
-        padded = np.pad(imArray,((0,0),(0,offsetX),(0,0)),'constant', constant_values=(0))
+        #padding = 'bottom'
+        padTupX = (0,offsetX)
         
     #Y Padding    
     if newCenter[1] <= rows/2:
-        padded = np.pad(padded,((offsetY,0),(0,0),(0,0)),'constant', constant_values=(0))
+        #padding2 = 'left'
+        padTupY = (offsetY,0)
     else:
-        offsetY = newCenter[1]
-        padded = np.pad(padded,((0,offsetY),(0,0),(0,0)),'constant', constant_values=(0))
+        #padding2 = 'right'
+        padTupY = (0,offsetY)
     
-    return(padded) 
+    paddedXY = np.pad(imArray,(padTupY,padTupX,(0,0)),'constant', constant_values=(0))
+    
+    return(paddedXY, padTupX, padTupY) 
 
 # =============================================================================
 # fileManager(inFolder)
