@@ -12,7 +12,7 @@ import sys
 import imageio
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Edited/'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/'
 
 overwrite = 1
 percentCrop = 3
@@ -47,7 +47,10 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
         paddedjpeg, xPad2 ,yPad2 = pad2NewCenter(jpeg,[xPoint,yPoint])
         croppedJpeg = paddedjpeg[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
         toAlignBundles.append([fname,paddedjpeg,croppedJpeg])
+    toAlignBundles.sort()
+    
 
+    
     #Rotational Alignment
     print('\n...Rotational alignment in progress...')
     alignedBundles = []
@@ -59,6 +62,8 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
         fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle[1],cv2.MOTION_EUCLIDEAN) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
         fullAlignTrim = removePadding(fullAlign,yPad,xPad,origY,origX,midImageRows,midImageCols )
         alignedBundles.append([fname,fullAlignTrim,alignCrop])
+    alignedBundles.sort()
+    
     
     #XY Translation Alignment
     fullyAligned = []
@@ -74,19 +79,23 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
         fname  = alignedNoEnum[0]
         fullAlignXY, alignCropXY = imgAlign(midImageBundle,alignedNoEnum,cv2.MOTION_TRANSLATION)
         ready2WriteOut = cropByPercent(fullAlignXY,percentCrop)
-        fullyAligned.append([fname,ready2WriteOut])
+        fullyAligned.append([fname,ready2WriteOut,alignCropXY])
+    
+    beforeAfterComp(midImageCropped,toAlignBundles,fullyAligned)
         
-     
     #cropMidImage
     midImageBundle[1] =  cropByPercent(midImageData,percentCrop)
     fullyAligned.append(midImageBundle) 
-    
-    
     fullyAligned.sort()
-   
-    loopBack = list(reversed(fullyAligned[1:-1]))
     
-    fullyAlignedLoop = fullyAligned + loopBack
+    #duplicate some images to create loop effect
+ 
+    loopBack = list(reversed(fullyAligned[1:-1])) 
+    fullyAlignedLoop = fullyAligned + loopBack #images  1 2 3 4 become 1 2 3 4 3 2 to make loop
+    
+    
+
+    
     
     toOutput = []
     #change filenames for output
@@ -249,9 +258,36 @@ def cropImg(img,x, y, width, height):
 #    after =  np.concatenate( afterIms,  axis = 0 )
 #    afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
 #    beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
-#    
-#    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
-  
+    #cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
+def beforeAfterComp(compare2,beforeList,afterList):
+    assert len(beforeList) == len(afterList)
+    preVsPost = []
+    #view image alignment
+    for i in range(len(beforeList)):
+        assert beforeList[i][0] == afterList[i][0] #fnames should match
+        assert beforeList[i][0] != compare2
+        assert afterList[i][0]  != compare2
+        imgName     = os.path.split(beforeList[i][0])[1]
+        croppedPre  = cv2.cvtColor(beforeList[i][2] ,cv2.COLOR_BGR2GRAY)
+        croppedPost = cv2.cvtColor(afterList[i][2]  ,cv2.COLOR_BGR2GRAY)
+        compare2Me  = cv2.cvtColor(compare2,cv2.COLOR_BGR2GRAY)
+        preComp     = cv2.subtract(compare2Me,croppedPre) *2
+        postComp    = cv2.subtract(compare2Me,croppedPost) *2
+            
+        preVsPost.append([imgName, preComp,postComp])
+    
+    imsNames = [x[0] for x in preVsPost]
+    preIms   = [x[1] for x in preVsPost]
+    postIms  = [x[2] for x in preVsPost]
+    
+    preSet  = np.concatenate( preIms, axis = 0 )
+    postSet = np.concatenate( postIms,axis = 0 )
+    
+    beforeAfter = np.concatenate([preSet, postSet], axis = 1  )#axis = 0)
+    beforeAfter = cv2.resize(beforeAfter, (0,0), fx=0.75, fy=0.75) 
+    cv2.imshow('before Vs after',beforeAfter)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()  
     
     
 
@@ -341,8 +377,6 @@ def fileOutput(allData, overwrite):
     
     videoOutput(toMakeGif,os.path.join(newFolder,'loopVid.mp4'),10)
     print('\nWrote loopVid.mp4 to:\n', newFolder)
-    
-    print('\nWrote gifAligned.gif to:\n', newFolder)
 
     return
 
@@ -355,7 +389,7 @@ def videoOutput(imgList, outLocation,numLoops):
     height, width, layers = cv2.imread(frameList[0]).shape
     video = cv2.VideoWriter(outLocation, 
                             -1, #('i','Y', 'U', 'V'),
-                            8, (width,height) )
+                            10, (width,height) ) #FPS,size of output vid
     for frame in frameList:
         video.write(cv2.imread(frame))
 
