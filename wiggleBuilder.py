@@ -12,7 +12,7 @@ import sys
 import imageio
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_02'
+imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Edited/'
 
 overwrite = 1
 percentCrop = 3
@@ -100,7 +100,7 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
         fullyAlignedLoop[iterate][0] = fullnew
         
         toOutput.append([fullnew, contents[1]])
-        print(contents[0])
+        
         
         
     #gif creation
@@ -334,12 +334,34 @@ def fileOutput(allData, overwrite):
         #print(data[1])
         cv2.imwrite(fullName,data[1])
         toMakeGif.append(fullName)
+    print('\nwrote', len(allData), 'aligned images to:\n', newFolder)
     
     gifOutput(toMakeGif,os.path.join(newFolder,'gifAligned.gif'))
+    print('\nwrote gifAligned.gif to:\n', newFolder)
+    
+    videoOutput(toMakeGif,os.path.join(newFolder,'loopVid.mp4'),10)
+    print('\nwrote loopVid.mp4 to:\n', newFolder)
+    
     print('\nwrote', len(allData), 'aligned images + gifAligned.gif to:\n', newFolder)
 
     return
+
+def videoOutput(imgList, outLocation,numLoops):
+    frameList = []
     
+    for i in range(numLoops):
+        for img in imgList:
+            frameList.append(img) 
+    height, width, layers = cv2.imread(frameList[0]).shape
+    video = cv2.VideoWriter(outLocation, 
+                            -1, #('i','Y', 'U', 'V'),
+                            10, (width,height) )
+    for frame in frameList:
+        video.write(cv2.imread(frame))
+
+    cv2.destroyAllWindows()
+    video.release()
+
     
 def gifOutput(gifImgList,outLocation):
     
@@ -347,6 +369,7 @@ def gifOutput(gifImgList,outLocation):
     for img in gifImgList:
         imgDataList.append(imageio.imread(img)) 
     imageio.mimsave(outLocation, imgDataList)
+    
         
 
     
