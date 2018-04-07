@@ -334,15 +334,15 @@ def fileOutput(allData, overwrite):
         #print(data[1])
         cv2.imwrite(fullName,data[1])
         toMakeGif.append(fullName)
-    print('\nwrote', len(allData), 'aligned images to:\n', newFolder)
+    print('\nWrote', len(allData), 'aligned images to:\n', newFolder)
     
     gifOutput(toMakeGif,os.path.join(newFolder,'gifAligned.gif'))
-    print('\nwrote gifAligned.gif to:\n', newFolder)
+    print('\nWrote gifAligned.gif to:\n', newFolder)
     
     videoOutput(toMakeGif,os.path.join(newFolder,'loopVid.mp4'),10)
-    print('\nwrote loopVid.mp4 to:\n', newFolder)
+    print('\nWrote loopVid.mp4 to:\n', newFolder)
     
-    print('\nwrote', len(allData), 'aligned images + gifAligned.gif to:\n', newFolder)
+    print('\nWrote gifAligned.gif to:\n', newFolder)
 
     return
 
@@ -355,7 +355,7 @@ def videoOutput(imgList, outLocation,numLoops):
     height, width, layers = cv2.imread(frameList[0]).shape
     video = cv2.VideoWriter(outLocation, 
                             -1, #('i','Y', 'U', 'V'),
-                            10, (width,height) )
+                            8, (width,height) )
     for frame in frameList:
         video.write(cv2.imread(frame))
 
