@@ -10,15 +10,24 @@ import cv2
 import numpy as np
 import sys
 import imageio
+import argparse
 
 
-imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/'
+#imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/'
 
-overwrite = 1
-percentCrop = 3
-ROIsize = 250
+#overwrite = 1
+#percentCrop = 3
+#ROIsize = 250
 
 def main(imsetDir,overwrite,ROIsize,percentCrop):
+    
+    if ROIsize == None:
+        ROIsize = 500
+    if percentCrop == None:
+        percentCrop = 3
+        
+    ROIsize = int(ROIsize / 2)
+
     
     #file manager takes input folder and returns base image plus images to be aligned
     midImage,jpegs = fileManager(imsetDir)
@@ -200,7 +209,7 @@ def fileManager(inFolder):
     if len(jpegs) < 2:
         print('\nError: You must have at least two jpeg images in the input directory.\n')
         sys.exit()
-        return
+        return 0 
     
     if not jpegs:
         print('no Jpeg images found in the input directory')
@@ -276,7 +285,7 @@ def beforeAfterComp(compare2,beforeList,afterList):
             
         preVsPost.append([imgName, preComp,postComp])
     
-    imsNames = [x[0] for x in preVsPost]
+#    imsNames = [x[0] for x in preVsPost]
     preIms   = [x[1] for x in preVsPost]
     postIms  = [x[2] for x in preVsPost]
     
@@ -359,9 +368,9 @@ def fileOutput(allData, overwrite):
     
     if not os.path.isdir(newFolder): 
         os.mkdir(newFolder)
-    elif overwrite == 0:
+    elif overwrite == 0 or overwrite == None:
         print('\nAligned folder already exists. Use overwrite argument to proceeed')
-        return
+        return 0
     
     toMakeGif = []
     for data in allData:
@@ -378,7 +387,7 @@ def fileOutput(allData, overwrite):
     videoOutput(toMakeGif,os.path.join(newFolder,'loopVid.mp4'),10)
     print('\nWrote loopVid.mp4 to:\n', newFolder)
 
-    return
+    return 1
 
 def videoOutput(imgList, outLocation,numLoops):
     frameList = []
@@ -403,8 +412,27 @@ def gifOutput(gifImgList,outLocation):
     for img in gifImgList:
         imgDataList.append(imageio.imread(img)) 
     imageio.mimsave(outLocation, imgDataList)
+
+def argParser():
+    parser = argparse.ArgumentParser(description= "Pass a folder containing n images taken at the same time from slightly parallax perspectives, receive aligned images.")
     
+    parser.add_argument('alignedImageFolder', help="Absolute path to folder where input images are located" , type=str)
+    parser.add_argument("-o","--overwrite",
+                    help="Program will not overwrite previous data by default, unless this argument is present", action="store_true")
+    parser.add_argument("-r","--roiSize", 
+                    help="Size of the ROI used for alignement. Default is 100. Change depending on the precision needed and alignmenet between images.", type=int)
+    parser.add_argument("-c","--cropPercent", 
+                    help= "With no cropping, aligned images will have black bars. Default for this param is 2 (for 2% crop), use larger if big offset between images.", type=int)
+    
+    args = parser.parse_args()
+    
+    main(args.alignedImageFolder, args.overwrite, args.roiSize, args.cropPercent)
         
+        
+if __name__ == '__main__':
+    print(123)
+    argParser()
 
     
-main(imsetDir,overwrite,ROIsize,percentCrop)
+
+#main(imsetDir,overwrite,ROIsize,percentCrop)
