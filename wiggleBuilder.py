@@ -13,13 +13,7 @@ import imageio
 import argparse
 
 
-<<<<<<< HEAD
-imsetDir = r'C:\Users\giles\Pictures\WIGGLEGRAMS\Round1\ImageSet_11'
-
-overwrite = 1
-=======
 #imsetDir = r'/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/'
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
 
 #overwrite = 1
 #percentCrop = 3
@@ -42,7 +36,6 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
     origY,origX, layers = midImageData.shape
     #get crop rectangel from midimage
     x, y, width, height = getROI(midImage) #pass img filename, return 
-<<<<<<< HEAD
     
     #Get center point of ROI returned from the getROI function
     xPoint,yPoint = int(width/2+x), int(height/2+y)
@@ -54,115 +47,8 @@ def main(imsetDir,overwrite,ROIsize,percentCrop):
     midImageRows, midImageCols , midImageLayers  = midImagePadded.shape
     centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
     
-    ROIsize = 250
-    #midImageCropped = midImagePadded[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
     
     
-#    cv2.imshow('d',midImageCropped)
-#    cv2.waitKey(0)
-#    cv2.destroyAllWindows()
-    
-    #This is bundle format. Each other jpeg will have a list like this one
-    
-    toAlignBundles = []
-    #Pad the "to be aligned" jpegs with the exact padding as midImagePadded, please in correct sublist format.
-    for jpeg in (jpegs):
-        fname = jpeg
-        paddedjpeg, xPad2 ,yPad2 = pad2NewCenter(jpeg,[xPoint,yPoint])
-        croppedJpeg = paddedjpeg[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
-        toAlignBundles.append([fname,paddedjpeg,croppedJpeg])
-=======
-    
-    #Get center point of ROI returned from the getROI function
-    xPoint,yPoint = int(width/2+x), int(height/2+y)
-#    xPoint,yPoint = 0,0
-    #Pad the middle image (which other images will be aligned to)
-    midImagePadded,xPad,yPad  = pad2NewCenter(midImage,[xPoint,yPoint])
-    
-    #find the center location of the padded image
-    midImageRows, midImageCols , midImageLayers  = midImagePadded.shape
-    centerX, centerY =  int(midImageRows/2), int(midImageCols/2 )
-    
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
-    
-    #alignedBundles = [[midImageBundle[0], midImageBundle[1]]]
-    
-    #alignedBundlesCrop = [[midImageBundle[0],midImageBundle[2]]]
-    
-    alignedBundles = []
-    midImageBundlePad = [midImage, midImagePadded  , midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize] ]
-    for bundle in toAlignBundles:
-        #bundle.append(bundle[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]) #add crop section
-        cv2.imshow('d', midImagePadded[centerX-ROIsize:centerX+ROIsize , centerY-ROIsize : centerY+ROIsize])
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        
-        fname,fullImg,cropSect   = bundle[0], bundle[1], bundle[2]
-        fullAlign, alignCrop = imgAlign(midImageBundlePad,bundle,cv2.MOTION_TRANSLATION) #cv2.MOTION_EUCLIDEAN, cv2.MOTION_TRANSLATION
-        fullAlignTrim = removePadding(fullAlign,xPad,yPad,origY,origX )
-        alignedBundles.append([fname,fullAlignTrim,alignCrop])
-     
-    #alignedBundles.append(midImageBundle)
-#        alignedBundlesCrop.append([fname,alignCrop])
-    #alignedBundles[0][1] =  removePadding(alignedBundles[0][1],xPad,yPad,origY,origX) 
-#    aligned,alignedCropped = imgAlign(midImageBundle, toAlignBundles) #pass align2Me ()
-#   
-        
-    #alignedBundles.sort()
-    #alignedBundlesCrop.sort()
-
-    #
-    fullyAligned = []
-    midImageCropped = midImageData[ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
-    midImageBundle = [midImage, midImageData,midImageCropped ] 
-    for aligned in alignedBundles:
-        
-        cv2.imshow('d',midImageCropped)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-    
-<<<<<<< HEAD
-        cropped = aligned[1][ centerX-ROIsize : centerX+ROIsize , centerY-ROIsize : centerY+ROIsize]
-        
-        cv2.imshow('d',cropped)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        
-        aligned.append(cropped) # add crop center section for xy translation calc
-        fname,fullImg,cropSect   = aligned[0], aligned[1], aligned[2]
-        
-        fullAlignXY, alignCropXY = imgAlign(midImageBundle,aligned,cv2.MOTION_TRANSLATION)
-        fullyAligned.append([fname,fullAlignXY])
-    fullyAligned.append(midImageBundle) 
-    #fullyAligned.sort()
-#    beforeImsCropped = [toAlignBundles[0][2], midImageBundle [2], toAlignBundles[1][2]]
-#    afterImsCropped  = [x[1] for x in alignedBundlesCrop]
-#    afterafterImsCropped = [x[1][ (centerX-ROIsize) : (centerX+ROIsize) , (centerY-ROIsize) : (centerY+ROIsize)] for x in alignedBundles]
-#    
-    
-    
-    
-    imDisp(beforeImsCropped,afterImsCropped,afterafterImsCropped)
-    
-    #list where each sublist is 0- fname of original jpeg, 1- img post alignment
-    fileOutput(fullyAligned,overwrite)
-            
-    #print(midImage, '\n', jpegs)
- 
-
-def removePadding(paddedImg,xPaddingData,yPaddingData,origDimY,origDimX):
-
-    
-    if xPaddingData[0] == 'right':
-        depadImgx= paddedImg[ : , :origDimX  ]
-    else:
-        depadImgx= paddedImg[ : ,  xPaddingData[1]: ]
-        
-    if yPaddingData[0] == 'bottom':
-        depadImg = depadImgx[ :origDimY ,  :]
-    else:
-        depadImg = depadImgx[ xPaddingData[1]:  ,  :]
-=======
     toAlignBundles = []
     #Pad the "to be aligned" jpegs with the exact padding as midImagePadded, please in correct sublist format.
     for jpeg in (jpegs):
@@ -259,7 +145,6 @@ def removePadding(paddedImg,yPaddingData,xPaddingData,origDimY,origDimX,paddedY,
         depadImg = depadImgx[ :origDimY ,  :]
     else:
         depadImg = depadImgx[ paddedY-origDimY:  ,  :]
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
         
     return(depadImg)
 
@@ -300,11 +185,7 @@ def pad2NewCenter(image,newCenter):
     
     paddedXY = np.pad(imArray,(padTupY,padTupX,(0,0)),'constant', constant_values=(50))
     
-<<<<<<< HEAD
-    return(paddedXY, [paddingX,offsetX], [paddingY,offsetY]) 
-=======
     return(paddedXY, paddingX, paddingY) 
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
 
 # =============================================================================
 # fileManager(inFolder)
@@ -354,21 +235,12 @@ def getROI(imgPath):
     cv2.namedWindow("Select ROI by clicking and dragging, then press enter",cv2.WINDOW_NORMAL)
     coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter",img)
     cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
-<<<<<<< HEAD
     
     x = coords[0]
     y = coords[1]
     width = coords[2]
     height = coords[3]
     
-=======
-    
-    x = coords[0]
-    y = coords[1]
-    width = coords[2]
-    height = coords[3]
-    
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
     return(x,y,width,height)
 
 
@@ -390,17 +262,6 @@ def cropImg(img,x, y, width, height):
     return(cropImg)
 
 #takes  lists of images of the same size and returns the stacked on top ofeachother in a window    
-<<<<<<< HEAD
-def imDisp(beforeIms,afterIms,afterafterImsCropped):
-    before = np.concatenate( beforeIms, axis = 0 )
-    after =  np.concatenate( afterIms,  axis = 0 )
-    afterafter = np.concatenate( afterafterImsCropped,  axis = 0 )
-    beforeAfter = np.concatenate([before, after,afterafter], axis = 1  )#axis = 0)
-    
-    cv2.imwrite('/Users/gholbrow/Dropbox (GoPro)/GOPRO/Stereo Rig/TESTING/Test 4/ImageSet_15/Aligned/derpydoo.jpg',beforeAfter)
-#    cv2.imshow('top',beforeAfter)
-#    cv2.waitKey(0)    
-=======
 #def imDisp(beforeIms,afterIms,afterafterImsCropped):
 #    before = np.concatenate( beforeIms, axis = 0 )
 #    after =  np.concatenate( afterIms,  axis = 0 )
@@ -427,13 +288,10 @@ def beforeAfterComp(compare2,beforeList,afterList):
 #    imsNames = [x[0] for x in preVsPost]
     preIms   = [x[1] for x in preVsPost]
     postIms  = [x[2] for x in preVsPost]
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
     
     preSet  = np.concatenate( preIms, axis = 0 )
     postSet = np.concatenate( postIms,axis = 0 )
     
-<<<<<<< HEAD
-=======
     beforeAfter = np.concatenate([preSet, postSet], axis = 1  )#axis = 0)
     beforeAfter = cv2.resize(beforeAfter, (0,0), fx=0.75, fy=0.75) 
     cv2.imshow('before Vs after',beforeAfter)
@@ -441,24 +299,15 @@ def beforeAfterComp(compare2,beforeList,afterList):
     cv2.destroyAllWindows()  
     
     
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
 
 # Read the images to be aligned
 def imgAlign(align2, toAlign,warpMode):
     
-<<<<<<< HEAD
-    align2Name = align2[0] #fname
-    align2Full = align2[1] #aligning other images to this image, full res
-    align2Crop = align2[2] #crop section to do actual alignment 
-    
-    toAlignName = toAlign[0]
-=======
 #    align2Name = align2[0] #fname
     align2Full = align2[1] #aligning other images to this image, full res
     align2Crop = align2[2] #crop section to do actual alignment 
     
 #    toAlignName = toAlign[0]
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
     toAlignFull = toAlign[1]
     toAlignCrop = toAlign[2]
         
@@ -495,18 +344,6 @@ def imgAlign(align2, toAlign,warpMode):
     im_aligned         = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
     im_aligned_cropped = cv2.warpAffine(toAlignCrop, warp_matrix, (szCrop[1],szCrop[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP);
              
-<<<<<<< HEAD
-    
-
-
-    
-    
-    
-    
-    
-    
-    return(im_aligned,im_aligned_cropped)
-=======
     return(im_aligned,im_aligned_cropped)
     
 def cropByPercent(imgToCrop,percentCrop):
@@ -523,7 +360,6 @@ def cropByPercent(imgToCrop,percentCrop):
     return(croppedImg)
     
     
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
 
 
 def fileOutput(allData, overwrite):
@@ -594,13 +430,8 @@ def argParser():
         
         
 if __name__ == '__main__':
-    print(123)
     argParser()
 
     
-<<<<<<< HEAD
-main(imsetDir,overwrite)
-=======
 
 #main(imsetDir,overwrite,ROIsize,percentCrop)
->>>>>>> 22473c0a0170c3358a8a09f088ae8625626b5071
