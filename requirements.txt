@@ -12,4 +12,4 @@ Pillow==7.2.0
 proglog==0.1.9
 requests==2.24.0
 tqdm==4.48.2
-urllib3==1.25.10
+urllib3==1.26.5
