@@ -295,7 +295,7 @@ def imgAlign(align2, toAlign, warpMode):
     criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations, termination_eps)
 
     # Run the ECC algorithm. The results are stored in warp_matrix.
-    (cc, warp_matrix) = cv2.findTransformECC(align2CropGray, toAlignCropGray, warp_matrix, warp_mode, criteria)
+    (cc, warp_matrix) = cv2.findTransformECC(align2CropGray, toAlignCropGray, warp_matrix, warp_mode, criteria, None, 1)
 
     # Use warpAffine for Translation, Euclidean and Affine
     im_aligned = cv2.warpAffine(toAlignFull, warp_matrix, (sz[1], sz[0]),
@@ -392,4 +392,4 @@ def argParser():
 if __name__ == '__main__':
     argParser()
 
-# main(imsetDir,overwrite,ROIsize,percentCrop)
+    # main(r'C:\Users\giles\Pictures\WIGGLEGRAMS\20200818_test\20200819_181111',True,None,6)

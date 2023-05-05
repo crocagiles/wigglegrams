@@ -1,0 +1,3 @@
+[submodule "mpo2stereo"]
+	path = mpo2stereo
+	url = https://github.com/ssmehta/mpo2stereo
