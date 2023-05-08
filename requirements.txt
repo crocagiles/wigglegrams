@@ -3,12 +3,12 @@ chardet==3.0.4
 decorator==4.4.2
 ExifRead==2.3.1
 idna==2.10
-imageio==2.9.0
+imageio==2.28.1
 imageio-ffmpeg==0.4.2
 moviepy==1.0.3
-numpy==1.19.1
-opencv-python==4.4.0.42
-Pillow==7.2.0
+numpy==1.24.3
+opencv-python==4.7.0.72
+Pillow==9.5.0
 proglog==0.1.9
 requests==2.24.0
 tqdm==4.48.2
