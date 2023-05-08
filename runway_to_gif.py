@@ -4,13 +4,16 @@ from moviepy.editor import *
 from pathlib import Path
 import random
 import datetime
+import subprocess
+from argparse import ArgumentParser
 
 def runway_to_vid_and_gif(pth_mp4_input):
 
     video = VideoFileClip(str(pth_mp4_input))
     clip = video.subclip(0, 5)  # 10s clip from runway has 5 second static frame at end of video. trim it off/
 
-    speedup = clip.fx(vfx.speedx, 7) # speed up the first 5 seconds since it's pretty slow
+    # If you want to speed or slow the final wiggle speed, do that in the line.
+    speedup = clip.fx(vfx.speedx, 7) # speed up the first 5 seconds since it's pretty slow.
     reversed = speedup.fx(vfx.time_symmetrize) # add reversed video to end to make smooth loop
 
     # Export
@@ -22,8 +25,37 @@ def runway_to_vid_and_gif(pth_mp4_input):
     pth_mp4_input_P = Path(pth_mp4_input)
     path_out_mp4, path_out_gif = pth_mp4_input_P.parent / nm_out_mp4, pth_mp4_input_P.parent / nm_out_gif
 
-    reversed.write_videofile(str(path_out_mp4))
+    reversed.write_videofile(str(path_out_mp4)) # need to write video if good_gif() is gonna work.
+
+    # try:
+    #     good_gif(path_out_mp4, path_out_gif)
+    #     pngs_2_delete = path_out_mp4.parent.rglob("frame[0-9][0-9][0-9][0-9].PNG")
+    #     # clean up png frames
+    #     for png in pngs_2_delete:
+    #         png.unlink()
+    #
+    # except:
+    #     reversed.write_gif(str(path_out_gif), program='imageio', opt='nq', fuzz=1, )
+
     reversed.write_gif(str(path_out_gif), program='imageio', opt='nq', fuzz=1, )
+
+
+    return True
+
+def good_gif(path_in_mp4, path_out_gif):
+
+    ffmpeg = r'ffmpeg-2023-05-04-git-4006c71d19-essentials_build\bin\ffmpeg.exe'
+    gifski = r'gifski-1.11.0\win\gifski.exe'
+
+    parent = path_in_mp4.parent
+    frames_out_loc = parent / 'frame%04d.png'
+
+    # get frames from vid with ffmpeg
+    output = subprocess.getoutput([ffmpeg, '-i', str(path_in_mp4), str(frames_out_loc)])
+
+    # write frames to gif with gifski
+    frames = parent / 'frame*.png'
+    output = subprocess.getoutput([gifski, '-o', str(path_out_gif), str(frames)])
 
     return True
 
@@ -65,9 +97,6 @@ def duplicate_half(lst):
     return new_lst
 
 
-
-    return True
-
 def batch_runway_to_vidgif(dir_root):
 
     # Find all runway mp4 files. Filter out mp4s that have been created locally by other wigglegram funcrtions..
@@ -79,7 +108,7 @@ def batch_runway_to_vidgif(dir_root):
             continue
         filepath = os.path.join(dir_root, filename)
         filesize = os.path.getsize(filepath) // 1000  # convert to KB
-        if filesize >= 3000 and filesize <= 5000:
+        if filesize >= 3000 and filesize <= 6000:
             runway_mp4s.append(filename)
 
     # call runway_to_vid_and_gif on the videos we found
@@ -89,14 +118,28 @@ def batch_runway_to_vidgif(dir_root):
 
     return True
 
+def argParser():
 
+    parser = ArgumentParser(
+        description="Converts 10s runway video into wigglegram (gif and video)")
+
+    parser.add_argument('input_mp4', help="Path to mp4 file", type=str)
+    # parser.add_argument("-o", "--overwrite",
+    #                     help="Program will not overwrite previous data by default, unless this argument is present",
+    #                     action="store_true")
+
+    args = parser.parse_args()
+
+    runway_to_vid_and_gif(args.input_mp4)
 
 
 if __name__ == '__main__':
 
-    # input = Path(r"C:\Users\giles\Downloads\wiggletest\DSCF1120\DSCF1120.mp4")
+    # input = Path(r"C:\Users\giles\Downloads\wiggletest\DSCF1190\plants.mp4")
     # runway_to_vid_and_gif(input)
 
-    input = Path(r"C:\Users\giles\Downloads\wiggletest")
-    batch_runway_to_vidgif(input) # look for all runway mp4 files and run em all
-    compile_wiggles(input)
+    # input = Path(r"C:\Users\giles\Downloads\wiggletest")
+    # batch_runway_to_vidgif(input) # look for all runway mp4 files and run em all
+    # compile_wiggles(input)
+
+    argParser()
