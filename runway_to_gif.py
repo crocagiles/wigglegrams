@@ -13,7 +13,7 @@ def runway_to_vid_and_gif(pth_mp4_input):
     clip = video.subclip(0, 5)  # 10s clip from runway has 5 second static frame at end of video. trim it off/
 
     # If you want to speed or slow the final wiggle speed, do that in the line.
-    speedup = clip.fx(vfx.speedx, 7) # speed up the first 5 seconds since it's pretty slow.
+    speedup = clip.fx(vfx.speedx, 10) # speed up the first 5 seconds since it's pretty slow.
     reversed = speedup.fx(vfx.time_symmetrize) # add reversed video to end to make smooth loop
 
     # Export
@@ -27,15 +27,15 @@ def runway_to_vid_and_gif(pth_mp4_input):
 
     reversed.write_videofile(str(path_out_mp4)) # need to write video if good_gif() is gonna work.
 
-    # try:
-    #     good_gif(path_out_mp4, path_out_gif)
-    #     pngs_2_delete = path_out_mp4.parent.rglob("frame[0-9][0-9][0-9][0-9].PNG")
-    #     # clean up png frames
-    #     for png in pngs_2_delete:
-    #         png.unlink()
-    #
-    # except:
-    #     reversed.write_gif(str(path_out_gif), program='imageio', opt='nq', fuzz=1, )
+    try:
+        good_gif(path_out_mp4, path_out_gif)
+        pngs_2_delete = path_out_mp4.parent.rglob("frame[0-9][0-9][0-9][0-9].PNG")
+        # clean up png frames
+        for png in pngs_2_delete:
+            png.unlink()
+
+    except:
+        reversed.write_gif(str(path_out_gif), program='imageio', opt='nq', fuzz=1, )
 
     reversed.write_gif(str(path_out_gif), program='imageio', opt='nq', fuzz=1, )
 
