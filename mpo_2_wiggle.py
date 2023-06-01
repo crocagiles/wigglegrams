@@ -1,18 +1,25 @@
 import tensorflow as tf
 import tensorflow_hub as hub
+`from pathlib import Path
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import matplotlib.widgets as widgets
 
+import time
 import requests
 import numpy as np
 import moviepy.editor as mpy
 import mpo_split
+import cv2
 
 from typing import Generator, Iterable, List, Optional
 
 # Todo add environment details anaconda, tensorflow etc to readnme
 
+#https://www.tensorflow.org/hub/tutorials/tf_hub_film_example?utm_source=pocket_saves
 
 _UINT8_MAX_F = float(np.iinfo(np.uint8).max)
-model = hub.load("https://tfhub.dev/google/film/1")
+# model = hub.load("https://tfhub.dev/google/film/1")
 
 def load_image(img_url: str):
   """Returns an image with shape [height, width, num_channels], with pixels in [0..1] range, and type np.float32."""
@@ -182,7 +189,7 @@ def create_video_from_images(image_list, output_file, fps=30):
     # Short by one frame, so get rid on the last frame:
     final_clip = video.subclip(t_end=(video.duration - 1.0 / fps))
     f = final_clip.fx(mpy.vfx.time_symmetrize)
-    speedup = f.fx(mpy.vfx.speedx, 2)
+    speedup = f.fx(mpy.vfx.speedx, 2.3)
     #
     # # Set the output video file's FPS (frames per second)
     # video2 = video.set_fps(fps)
@@ -207,30 +214,154 @@ def mpo_2_vid_gif(mpo_file):
 
     #split mpo (makes new dir with two jpeg images, in directory where mpo is located
     dir_new, filename_left, filename_right = mpo_split.main([mpo_file])
+    output_file = dir_new.parent / (dir_new.name + '_wiggle.mp4')
+    # if output_file.exists():
+    #     print(f'Skipping {output_file.name}')
+    #     return
 
     # load and downsample, resolution is too high otherwise and memory runs out
     image1 = load_image(str(filename_left))[::4, ::4, :]
     image2 = load_image(str(filename_right))[::4, ::4, :]
 
+
+    #align images
+    image1_ref, image2_warped = img_align(image1, image2)
+
+    # image2_warped will have at least one black edge, from alignment. Let's trim it down.
+    smart_crop(image2_warped)
+
+    # image1_ref, image2_warped = image1_ref/255, image2_warped/255
+
+    # image1_ref, image2_warped = image1, image2
     # generation of interpolated frames
 
     times_to_interpolate = 6
     interpolator = Interpolator()
-    input_frames = [image1, image2]
+    input_frames = [image1_ref, image2_warped]
     frames = list(interpolate_recursively(input_frames, times_to_interpolate,interpolator))
 
     # interpolated frames have range outside of 0-1. Normalizing gives weird results, we must clip instead.
     # I discovered this by looking at the histogram and noticing that the bulk of normalized pixel values are 0-1
     clipped = clip_frames(frames)
 
-    output_file = dir_new.parent / (dir_new.name + '_wiggle.mp4')
+
     create_video_from_images(clipped, str(output_file), fps=30)
     print(f'video with {len(frames)} frames')
     # media.show_video(frames, fps=30, title='FILM interpolated video')
 
     return
 
+def smart_crop(img):
+
+    return
+
+def img_align(img_left, image_right):
+
+    # Load the first image (grayscale)
+    # img_left =  r"C:\Users\giles\Pictures\mpo_backup\DSCF1356\DSCF1356_left.jpg"
+    # image_right= r"C:\Users\giles\Pictures\mpo_backup\DSCF1356\DSCF1356_right.jpg"
+
+
+    quart_y, quart_x, _ = [i // 4 for i in img_left.shape]
+    quart_y, quart_x, _ = [1,1,1]
+
+    img_left_g = np.uint8((img_left[quart_y:-quart_y,quart_x:-quart_x,1]) * 255)
+    image_right_g =  np.uint8((image_right[quart_y:-quart_y,quart_x:-quart_x,1]) * 255) # go from normalized to 8 bit
+
+
+    while True:
+        print('\nPlease select a point on the image and press enter to confirm.')
+        cv2.namedWindow("Select ROI by clicking and dragging, then press enter", cv2.WINDOW_NORMAL)
+        coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter", img_left_g)
+        cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
+        x = coords[0]
+        y = coords[1]
+        width = coords[2]
+        height = coords[3]
+        img_left_g_crop = img_left_g[y:y + height, x:x + width]
+        image_right_g_g_crop = image_right_g[y:y + height, x:x + width]
+
+
+        sift = cv2.SIFT_create()
+
+        # Find keypoints and descriptors for the images
+        keypoints1, descriptors1 = sift.detectAndCompute(img_left_g_crop, None)
+        keypoints2, descriptors2 = sift.detectAndCompute(image_right_g_g_crop, None)
+
+        # Create a BFMatcher object
+        bf = cv2.BFMatcher()
+
+        # Match the descriptors
+        matches = bf.match(descriptors1, descriptors2)
+
+        # Sort the matches by distance
+        matches = sorted(matches, key=lambda x: x.distance)
+
+        # Select the top matches (you can adjust the number according to your needs)
+        num_matches = 10
+        selected_matches = matches[:num_matches]
+
+        # Extract the corresponding keypoints from the matches
+        src_pts  = np.float32([keypoints1[m.queryIdx].pt for m in selected_matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in selected_matches]).reshape(-1, 1, 2)
+        # Estimate the transformation matrix
+        transformation_matrix, _ = cv2.estimateAffinePartial2D(dst_pts, src_pts)# cv2.RANSAC)
+
+        # Remove scaling component from the transformation matrix
+        # transformation_matrix = transformation_matrix[:2, :]
+        transformation_matrix[0, 0] = 1
+        transformation_matrix[1, 1] = 1
+
+        # Warp the second image using the estimated transformation matrix
+        aligned_image = cv2.warpAffine(image_right, transformation_matrix, (img_left.shape[1], img_left.shape[0]))
+
+
+        # debug warped image
+        list_for_animate = [img_left[:,:,1], image_right[:,:,1]]
+        import matplotlib.pyplot as plt
+        import matplotlib.animation as animation
+        # Define your two images
+        image1 = img_left # Replace with your image data or file path
+        image2 =  aligned_image# Replace with your image data or file path
+
+        # Create the figure and axis
+        fig, ax = plt.subplots()
+
+        # Initialize the image plot
+        im = ax.imshow(image1)
+        # Define the update function for the animation
+        def update(frame):
+            # Alternate between the two images
+            if frame % 2 == 0:
+                im.set_array(image1)
+            else:
+                im.set_array(image2)
+
+            return im,
+        # Create the animation
+        ani = animation.FuncAnimation(fig, update, frames=10, interval=500, blit=True)
+
+        # Show the figure
+        plt.show()
+        time.sleep(3)
+        plt.close()
+        inp = input("Accept Alginment? (Y/N)")
+        if inp.lower() == 'y' or inp.lower == 'yes':
+            break
+        else:
+            continue
+
+    #crop off black lines
+
+
+    return img_left, aligned_image
 
 
 if __name__ == '__main__':
-    mpo_2_vid_gif(r"C:\Users\giles\Pictures\20230528_Italy_wiggles\DSCF1341.MPO")
+
+
+    mpo_2_vid_gif(r"C:\Users\giles\Pictures\20230528_Italy_wiggles\card2\DSCF1282.MPO")
+
+    # p = Path(r"C:\Users\giles\Pictures\mpo_backup").rglob('*.MPO')
+    # for m in p:
+    #     mpo_2_vid_gif(str(m))
