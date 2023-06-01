@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow_hub as hub
-`from pathlib import Path
+from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.widgets as widgets
@@ -189,7 +189,7 @@ def create_video_from_images(image_list, output_file, fps=30):
     # Short by one frame, so get rid on the last frame:
     final_clip = video.subclip(t_end=(video.duration - 1.0 / fps))
     f = final_clip.fx(mpy.vfx.time_symmetrize)
-    speedup = f.fx(mpy.vfx.speedx, 2.3)
+    speedup = f.fx(mpy.vfx.speedx, 2)
     #
     # # Set the output video file's FPS (frames per second)
     # video2 = video.set_fps(fps)
