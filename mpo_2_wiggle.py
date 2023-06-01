@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.widgets as widgets
 
+from argparse import ArgumentParser
 import time
 import requests
 import numpy as np
@@ -208,16 +209,18 @@ def clip_frames(frames):
         clipped_frames.append(clipped_frame)
     return clipped_frames
 
-def mpo_2_vid_gif(mpo_file):
+def mpo_2_vid_gif(mpo_file, overwrite=False):
 
     # img1, im2
 
     #split mpo (makes new dir with two jpeg images, in directory where mpo is located
     dir_new, filename_left, filename_right = mpo_split.main([mpo_file])
     output_file = dir_new.parent / (dir_new.name + '_wiggle.mp4')
-    # if output_file.exists():
-    #     print(f'Skipping {output_file.name}')
-    #     return
+
+    if overwrite:
+        if output_file.exists():
+            print(f'Skipping {output_file.name}')
+            return
 
     # load and downsample, resolution is too high otherwise and memory runs out
     image1 = load_image(str(filename_left))[::4, ::4, :]
@@ -357,10 +360,26 @@ def img_align(img_left, image_right):
     return img_left, aligned_image
 
 
+def argParser():
+    parser = ArgumentParser(
+        description="Pass an MPO file, get a wigglegram")
+
+    parser.add_argument('MPO', help="Absolute path to MPRO file", type=str)
+    parser.add_argument("-o", "--overwrite",
+                        help="Program will not overwrite previous data by default, unless this argument is present",
+                        action="store_true")
+
+
+    args = parser.parse_args()
+
+    mpo_2_vid_gif(args.MPO, args.overwrite)
+
+    return True
+
 if __name__ == '__main__':
 
-
-    mpo_2_vid_gif(r"C:\Users\giles\Pictures\20230528_Italy_wiggles\card2\DSCF1282.MPO")
+    argParser()
+    # mpo_2_vid_gif(r"C:\Users\giles\Pictures\20230528_Italy_wiggles\card2\DSCF1311.MPO")
 
     # p = Path(r"C:\Users\giles\Pictures\mpo_backup").rglob('*.MPO')
     # for m in p:
