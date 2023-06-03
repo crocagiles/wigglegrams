@@ -209,7 +209,7 @@ def clip_frames(frames):
         clipped_frames.append(clipped_frame)
     return clipped_frames
 
-def mpo_2_vid_gif(mpo_file, overwrite=False):
+def mpo_2_vid_gif(mpo_file, overwrite=False, roi_select=True):
 
     # img1, im2
 
@@ -228,16 +228,7 @@ def mpo_2_vid_gif(mpo_file, overwrite=False):
 
 
     #align images
-    image1_ref, image2_warped = img_align(image1, image2)
-
-    # image2_warped will have at least one black edge, from alignment. Let's trim it down.
-    smart_crop(image2_warped)
-
-    # image1_ref, image2_warped = image1_ref/255, image2_warped/255
-
-    # image1_ref, image2_warped = image1, image2
-    # generation of interpolated frames
-
+    image1_ref, image2_warped = img_align(image1, image2, roi_select=roi_select)
     times_to_interpolate = 6
     interpolator = Interpolator()
     input_frames = [image1_ref, image2_warped]
@@ -254,42 +245,68 @@ def mpo_2_vid_gif(mpo_file, overwrite=False):
 
     return
 
-def smart_crop(img):
+def pad_image(image, pad_size):
+  """Pads an image with zeros on all sides.
 
-    return
+  Args:
+    image: A NumPy array representing the image.
+    pad_size: The number of pixels to pad on each side.
 
-def img_align(img_left, image_right):
+  Returns:
+    A padded NumPy array representing the image.
+  """
 
-    # Load the first image (grayscale)
-    # img_left =  r"C:\Users\giles\Pictures\mpo_backup\DSCF1356\DSCF1356_left.jpg"
-    # image_right= r"C:\Users\giles\Pictures\mpo_backup\DSCF1356\DSCF1356_right.jpg"
+  padded_image = np.zeros((image.shape[0] + 2 * pad_size, image.shape[1] + 2 * pad_size))
+  padded_image[pad_size:-pad_size, pad_size:-pad_size] = image
+
+  return padded_image
+
+def user_select_roi(img_left_g, image_right_g):
+
+    print('\nPlease select a point on the image and press enter to confirm.')
+    cv2.namedWindow("Select ROI by clicking and dragging, then press enter", cv2.WINDOW_NORMAL)
+    coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter", img_left_g)
+    cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
+    x = coords[0]
+    y = coords[1]
+    width = coords[2]
+    height = coords[3]
+
+    # Crop the left image, but pad it with some extra black bars on all sides
+    img_left_g_crop = img_left_g[y:y + height, x:x + width]
+
+    # pad some zeros on all sides of left image
+    # if small ROI is selected, this will increase the searchable area in the right image
+    pad_size = 100
+    img_left_g_crop_padded = pad_image(img_left_g_crop, pad_size)
+    img_left_g_crop_padded = img_left_g_crop_padded.astype('uint8')
+
+    # Crop the right image so the dimensions equal that of the padded image.
+    image_right_g_crop = image_right_g[y-pad_size:y + height + pad_size, x - pad_size:x + width + pad_size]
+
+    return img_left_g_crop_padded, image_right_g_crop
 
 
-    quart_y, quart_x, _ = [i // 4 for i in img_left.shape]
-    quart_y, quart_x, _ = [1,1,1]
+def img_align(img_left, image_right, roi_select=True):
 
-    img_left_g = np.uint8((img_left[quart_y:-quart_y,quart_x:-quart_x,1]) * 255)
-    image_right_g =  np.uint8((image_right[quart_y:-quart_y,quart_x:-quart_x,1]) * 255) # go from normalized to 8 bit
-
+    img_left_g = np.uint8((img_left[:,:,1]) * 255)
+    image_right_g = np.uint8((image_right[:,:,1]) * 255) # go from normalized to 8 bit
 
     while True:
-        print('\nPlease select a point on the image and press enter to confirm.')
-        cv2.namedWindow("Select ROI by clicking and dragging, then press enter", cv2.WINDOW_NORMAL)
-        coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter", img_left_g)
-        cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
-        x = coords[0]
-        y = coords[1]
-        width = coords[2]
-        height = coords[3]
-        img_left_g_crop = img_left_g[y:y + height, x:x + width]
-        image_right_g_g_crop = image_right_g[y:y + height, x:x + width]
+        if not roi_select:  #default alignment based on center of iamge
 
+            quart_y, quart_x, _ = [i // 4 for i in img_left.shape]
+            img_left_g_crop = img_left_g[quart_y:-quart_y,quart_x:-quart_x]
+            img_right_g_crop = image_right_g[quart_y:-quart_y,quart_x:-quart_x]
+
+        else: # user selected ROI for alignment
+            img_left_g_crop, img_right_g_crop = user_select_roi(img_left_g, image_right_g)
 
         sift = cv2.SIFT_create()
 
         # Find keypoints and descriptors for the images
         keypoints1, descriptors1 = sift.detectAndCompute(img_left_g_crop, None)
-        keypoints2, descriptors2 = sift.detectAndCompute(image_right_g_g_crop, None)
+        keypoints2, descriptors2 = sift.detectAndCompute(img_right_g_crop, None)
 
         # Create a BFMatcher object
         bf = cv2.BFMatcher()
@@ -317,7 +334,6 @@ def img_align(img_left, image_right):
 
         # Warp the second image using the estimated transformation matrix
         aligned_image = cv2.warpAffine(image_right, transformation_matrix, (img_left.shape[1], img_left.shape[0]))
-
 
         # debug warped image
         list_for_animate = [img_left[:,:,1], image_right[:,:,1]]
@@ -365,6 +381,9 @@ def argParser():
         description="Pass an MPO file, get a wigglegram")
 
     parser.add_argument('MPO', help="Absolute path to MPRO file", type=str)
+    parser.add_argument("-r", "--roi_auto",
+                        help="With this flag, image alignment will be done automatically, user does not select region to align to.",
+                        action="store_false", default=True)
     parser.add_argument("-o", "--overwrite",
                         help="Program will not overwrite previous data by default, unless this argument is present",
                         action="store_true")
@@ -372,7 +391,7 @@ def argParser():
 
     args = parser.parse_args()
 
-    mpo_2_vid_gif(args.MPO, args.overwrite)
+    mpo_2_vid_gif(args.MPO, overwrite=args.overwrite, roi_select=args.roi_auto)
 
     return True
 
