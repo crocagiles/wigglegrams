@@ -4,8 +4,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.widgets as widgets
-
-from argparse import ArgumentParser
+import os
+from argparse import ArgumentParser, ArgumentTypeError
 import time
 import requests
 import numpy as np
@@ -177,7 +177,7 @@ def interpolate_recursively(
   # Separately yield the final frame.
   yield frames[-1]
 
-def create_video_from_images(image_list, output_file, fps=30):
+def create_video_from_images(image_list, output_file, crop_ind=None):
 
     # Convert list of NumPy arrays to a list of moviepy VideoClips
     clips = [mpy.ImageClip(img*255, duration=1/60) for img in image_list]
@@ -191,16 +191,14 @@ def create_video_from_images(image_list, output_file, fps=30):
     final_clip = video.subclip(t_end=(video.duration - 1.0 / fps))
     f = final_clip.fx(mpy.vfx.time_symmetrize)
     speedup = f.fx(mpy.vfx.speedx, 2)
-    #
-    # # Set the output video file's FPS (frames per second)
-    # video2 = video.set_fps(fps)
+
+    if crop_ind:
+        x1, y1, width, height = crop_ind
+        speedup = mpy.vfx.crop(speedup, x1=x1, width=width, y1=y1, height=height)
 
     # Write the video to the output file
     speedup.write_videofile(output_file, codec="libx264", fps=fps)
 
-# Example usage:
-# Assume `image_list` is a list of NumPy arrays representing images
-# and `output_file` is the desired output file name/path
 
 def clip_frames(frames):
     clipped_frames = []
@@ -209,9 +207,26 @@ def clip_frames(frames):
         clipped_frames.append(clipped_frame)
     return clipped_frames
 
+def crop_images(right):
+
+    print('\nPlease select crop area (remove black bars from image perimeter.)')
+    cv2.namedWindow("Select ROI by clicking and dragging, then press enter", cv2.WINDOW_NORMAL)
+    coords = cv2.selectROI("Select ROI by clicking and dragging, then press enter", right[:,:,1]) # G channel only
+    cv2.destroyWindow("Select ROI by clicking and dragging, then press enter")
+    x = coords[0]
+    y = coords[1]
+    width = coords[2]
+    height = coords[3]
+
+    # Crop the left image, but pad it with some extra black bars on all sides
+    # left_crop = left[y:y + height, x:x + width, :]
+    # right_crop = right[y:y + height, x:x + width, :]
+
+    return x, y, width, height
+
 def mpo_2_vid_gif(mpo_file, overwrite=False, roi_select=True):
 
-    # img1, im2
+    # assert Path(mpo_file).suffix.lower() == '.mpo'
 
     #split mpo (makes new dir with two jpeg images, in directory where mpo is located
     dir_new, filename_left, filename_right = mpo_split.main([mpo_file])
@@ -227,8 +242,14 @@ def mpo_2_vid_gif(mpo_file, overwrite=False, roi_select=True):
     image2 = load_image(str(filename_right))[::4, ::4, :]
 
 
-    #align images
+    # Align images
     image1_ref, image2_warped = img_align(image1, image2, roi_select=roi_select)
+
+    # Crop Images to get rid of black borders introduced by warping the 2nd image
+    # we'll just get the index right now, and then crop the final video rather than the input frames
+    # This gives the interpolator a little more to work with
+    x, y, width, height = crop_images(image2_warped)
+
     times_to_interpolate = 6
     interpolator = Interpolator()
     input_frames = [image1_ref, image2_warped]
@@ -238,8 +259,8 @@ def mpo_2_vid_gif(mpo_file, overwrite=False, roi_select=True):
     # I discovered this by looking at the histogram and noticing that the bulk of normalized pixel values are 0-1
     clipped = clip_frames(frames)
 
-
-    create_video_from_images(clipped, str(output_file), fps=30)
+    # Create video, and crop it according to user selected ROI from earlier
+    create_video_from_images(clipped, str(output_file), crop_ind=[x, y, width, height])
     print(f'video with {len(frames)} frames')
     # media.show_video(frames, fps=30, title='FILM interpolated video')
 
@@ -370,20 +391,22 @@ def img_align(img_left, image_right, roi_select=True):
         else:
             continue
 
-    #crop off black lines
-
-
     return img_left, aligned_image
 
+def valid_file(param):
+    base, ext = os.path.splitext(param)
+    if ext.lower() not in ('.mpo', '.MPO'):
+        raise ArgumentTypeError('File must have a .mpo extension.')
+    return param
 
 def argParser():
     parser = ArgumentParser(
         description="Pass an MPO file, get a wigglegram")
 
-    parser.add_argument('MPO', help="Absolute path to MPRO file", type=str)
+    parser.add_argument('MPO', help="Absolute path to MPO file", type=valid_file)
     parser.add_argument("-r", "--roi_auto",
                         help="With this flag, image alignment will be done automatically, user does not select region to align to.",
-                        action="store_false", default=True)
+                        action="store_false", default=True, required=False)
     parser.add_argument("-o", "--overwrite",
                         help="Program will not overwrite previous data by default, unless this argument is present",
                         action="store_true")
