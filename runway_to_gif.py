@@ -47,15 +47,18 @@ def good_gif(path_in_mp4, path_out_gif):
     ffmpeg = r'ffmpeg-2023-05-04-git-4006c71d19-essentials_build\bin\ffmpeg.exe'
     gifski = r'gifski-1.11.0\win\gifski.exe'
 
-    parent = path_in_mp4.parent
-    frames_out_loc = parent / 'frame%04d.png'
+    png_temp_dir = path_in_mp4.parent / 'temp_png_frames'
+    if not png_temp_dir.exists():
+        png_temp_dir.mkdir()
+    frames_out_loc = png_temp_dir / 'frame%04d.png'
 
     # get frames from vid with ffmpeg
     output = subprocess.getoutput([ffmpeg, '-i', str(path_in_mp4), str(frames_out_loc)])
-
+    print(output)
     # write frames to gif with gifski
-    frames = parent / 'frame*.png'
-    output = subprocess.getoutput([gifski, '-o', str(path_out_gif), str(frames)])
+    frames = png_temp_dir / 'frame*.png'
+    output = subprocess.getoutput([gifski, '-o', str(path_out_gif), str(frames), '--fps', '50', '--quality', '50'])
+    print(output)
 
     return True
 
