@@ -42,7 +42,7 @@ def main(args, options=False):
     for i, f in enumerate(args):
         try:
             # Load the right and left images (ordered for crosseye stereo)
-            img_right, img_left = split_mpo(f)
+            img_left, img_right  = split_mpo(f)
 
             # Create the stereo image
             size = (2 * img_right.size[0], img_right.size[1])
